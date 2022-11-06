@@ -9,7 +9,7 @@ import Geom
 
 struct RegionIntersecter {
     
-    private var intersecter: Intersecter
+    private (set) var intersecter: Intersecter
     
     init(geom: Geom) {
         intersecter = Intersecter(selfIntersection: true, geom: geom)
@@ -31,14 +31,13 @@ struct RegionIntersecter {
             guard forward != 0 else {
                 continue // just skip it
             }
-
-            intersecter.eventAddSegment(
-                segment: Segment(
-                    start: forward < 0 ? pt1 : pt2,
-                    end: forward < 0 ? pt2 : pt1
-                ),
-                primary: true
+            
+            let segment = Segment(
+                start: forward < 0 ? pt1 : pt2,
+                end: forward < 0 ? pt2 : pt1
             )
+
+            intersecter.eventAdd(segment: segment, primary: true)
         }
     }
 

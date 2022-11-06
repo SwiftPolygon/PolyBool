@@ -15,7 +15,7 @@ struct Node {
         ev: -1,
         isStart: false,
         pt: .zero,
-        seg: Segment(start: .zero, end: .zero, myFill: .init(above: false, below: false)),
+        seg: -1,
         primary: false
     )
     
@@ -24,6 +24,6 @@ struct Node {
     var ev: Int
     var isStart: Bool
     var pt: Point
-    var seg: Segment
+    var seg: Int
     var primary: Bool
 }

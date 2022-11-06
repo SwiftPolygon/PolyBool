@@ -205,14 +205,14 @@ struct PolyBool {
 
     @inlinable
     public func segments(poly: Polygon) -> PolySegments {
-         var i = RegionIntersecter(geom: geom)
-         for region in poly.regions {
-             i.addRegion(region: region)
-         }
+        var i = RegionIntersecter(geom: geom)
+        for region in poly.regions {
+            i.addRegion(region: region)
+        }
         
         let segments = i.calculate(inverted: poly.inverted)
         let isInverted = poly.inverted
-        
+
         return PolySegments(isInverted: isInverted, segments: segments)
      }
 
@@ -236,7 +236,7 @@ struct PolyBool {
 
 
     @inlinable
-    func polygon(polySegments: PolySegments) -> Polygon {
+    func polygon(polySegments: PolySegments, segmentStore: SegmentStore) -> Polygon {
         let regions = self.segmentChainer(segments: polySegments.segments)
         return Polygon(regions: regions, isInverted: polySegments.isInverted)
     }

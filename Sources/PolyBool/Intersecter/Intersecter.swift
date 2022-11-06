@@ -10,6 +10,7 @@ import Geom
 struct Intersecter {
     
     let geom: Geom
+    private var segmentStore = SegmentStore()
     private let selfIntersection: Bool
     private var eventRoot = LinkedList<Node>(empty: .empty)
     
@@ -20,13 +21,21 @@ struct Intersecter {
         self.eventRoot = eventRoot
     }
     
+    
     @inlinable
-    mutating func eventAddSegment(segment: Segment, primary: Bool) {
+    mutating func eventAdd(segment: Segment, primary: Bool) {
+        let seg = segmentStore.put(segment: segment)
+        let evStartIndex = self.eventAddSegmentStart(seg: seg, primary: primary)
+        self.eventAddSegmentEnd(evStart: evStartIndex, seg: seg, primary: primary)
+    }
+    
+    @inlinable
+    mutating func eventAddSegment(segment: Int, primary: Bool) {
         let evStartIndex = self.eventAddSegmentStart(seg: segment, primary: primary)
         self.eventAddSegmentEnd(evStart: evStartIndex, seg: segment, primary: primary)
     }
     
-    private mutating func eventAddSegmentEnd(evStart evStartIndex: Int, seg: Segment, primary: Bool) {
+    private mutating func eventAddSegmentEnd(evStart evStartIndex: Int, seg: Int, primary: Bool) {
         var evStart = eventRoot[evStartIndex]
         
         let evEnd = Node(
@@ -34,7 +43,7 @@ struct Intersecter {
             other: evStartIndex,
             ev: -1,
             isStart: false,
-            pt: seg.end,
+            pt: segmentStore[seg].end,
             seg: seg,
             primary: primary
         )
@@ -47,19 +56,20 @@ struct Intersecter {
         self.eventAdd(ev: evItem, otherPt: evStart.value.pt)
     }
     
-    private mutating func eventAddSegmentStart(seg: Segment, primary: Bool) -> Int {
+    private mutating func eventAddSegmentStart(seg: Int, primary: Bool) -> Int {
+        let s = segmentStore[seg]
         let evStart = Node(
             status: -1,
             other: -1,
             ev: -1,
             isStart: true,
-            pt: seg.start,
+            pt: s.start,
             seg: seg,
             primary: primary
         )
         
         let evItem = eventRoot.create(value: evStart)
-        self.eventAdd(ev: evItem, otherPt: seg.end)
+        self.eventAdd(ev: evItem, otherPt: s.end)
 
         return evItem.index
     }
@@ -127,17 +137,17 @@ struct Intersecter {
         //   (start)------------(end)    to:
         //   (start)---(end)
         
-        var ev = eventRoot[evIndex].value
+        let ev = eventRoot[evIndex].value
+        var other = eventRoot[ev.other].value
         
-        var otherItem = eventRoot[ev.other]
+        eventRoot.unlink(index: ev.other)
         
-        eventRoot.remove(index: ev.other) // TODO !!! (1)
-        
-        ev.seg.end = end
-        otherItem.value.pt = end
-        
-        eventRoot[evIndex].value = ev
-        eventRoot[ev.other].value = otherItem.value // TODO !!! 1 ???
+        segmentStore[ev.seg].end = end
+
+        other.pt = end
+        eventRoot[ev.other].value = other
+
+        let otherItem = eventRoot[ev.other]
         
         eventAdd(ev: otherItem, otherPt: ev.pt)
     }
@@ -145,7 +155,18 @@ struct Intersecter {
     private mutating func eventDivide(ev evIndex: Int, pt: Point) {
         let ev = eventRoot[evIndex].value
         
-        let ns = self.segmentCopy(start: pt, end: ev.seg.end, seg: ev.seg)
+        let s = segmentStore[ev.seg]
+        
+        let newSeg = Segment(
+            start: pt,
+            end: s.end,
+            myFill: Fill(
+                above: s.myFill.above,
+                below: s.myFill.below
+            )
+        )
+        
+        let ns = segmentStore.put(segment: newSeg)
         eventUpdateEnd(ev: evIndex, end: pt)
         eventAddSegment(segment: ns, primary: ev.primary)
     }
@@ -155,10 +176,14 @@ struct Intersecter {
         
         let seg1 = eventRoot[ev1Index].value.seg
         let seg2 = eventRoot[ev2Index].value.seg
-        let a1 = seg1.start
-        let a2 = seg1.end
-        let b1 = seg2.start
-        let b2 = seg2.end
+        
+        let s1 = segmentStore[seg1]
+        let s2 = segmentStore[seg2]
+        
+        let a1 = s1.start
+        let a2 = s1.end
+        let b1 = s2.start
+        let b2 = s2.end
         
         let i = geom.isCross(a0: a1, a1: a2, b0: b1, b1: b2)
         
@@ -247,11 +272,13 @@ struct Intersecter {
     private mutating func checkBothIntersections(above: Int, ev: Int, below: Int) -> Int {
         if above >= 0 && checkIntersection(ev1: ev, ev2: above) {
             return above
-        } else if below >= 0 && checkIntersection(ev1: ev, ev2: below) {
-            return below
-        } else {
-            return -1
         }
+        
+        if below >= 0 && checkIntersection(ev1: ev, ev2: below) {
+            return below
+        }
+        
+        return -1
     }
     
     @inlinable
@@ -278,14 +305,24 @@ struct Intersecter {
             print("evItem.index: \(evItem.index)")
             
             if ev.isStart {
+                var s = segmentStore[ev.seg]
                 
-                let surrounding = statusRoot.findTransition(eventList: eventRoot, ev: ev, geom: geom) //(statusRoot: &statusRoot, ev: ev)
+                let surrounding = statusRoot.findTransition(
+                    eventList: eventRoot,
+                    segmentStore: segmentStore,
+                    s1: s,
+                    geom: geom
+                ) //(statusRoot: &statusRoot, ev: ev)
                 
                 let aboveIndex = surrounding.before >= 0 ? statusRoot[surrounding.before].value : -1
                 let belowIndex = surrounding.after >= 0 ? statusRoot[surrounding.after].value : -1
                 
+                // Modify!
                 let eveIndex = checkBothIntersections(above: aboveIndex, ev: evItem.index, below: belowIndex)
+
                 ev = eventRoot[evItem.index].value
+                s = segmentStore[ev.seg]
+                
                 if eveIndex >= 0 {
                     // ev and eve are equal
                     // we"ll keep eve and throw away ev
@@ -294,10 +331,10 @@ struct Intersecter {
                     
                     if selfIntersection {
                         let toggle: Bool // are we a toggling edge?
-                        if !ev.seg.myFill.isSet {
+                        if !s.myFill.isSet {
                             toggle = true
                         } else {
-                            toggle = ev.seg.myFill.above != ev.seg.myFill.below
+                            toggle = s.myFill.above != s.myFill.below
                         }
                         
                         // merge two segments that belong to the same polygon
@@ -305,7 +342,11 @@ struct Intersecter {
                         // the bottom -- this will cause the above fill flag to toggle
                         if toggle {
                             let eve = eventRoot[eveIndex].value
-                            eventRoot[eveIndex].value.seg.myFill.above = !eve.seg.myFill.above
+                            
+                            var es = segmentStore[eve.seg]
+                            es.myFill.above = !es.myFill.above
+                            
+                            segmentStore[eve.seg] = es
                         }
                     } else {
                         // merge two segments that belong to different polygons
@@ -313,11 +354,14 @@ struct Intersecter {
                         // note that this can only happen once per segment in this phase, because we
                         // are guaranteed that all self-intersections are gone
                         
-                        eventRoot[eveIndex].value.seg.otherFill = ev.seg.myFill
+//                        eventRoot[eveIndex].value.seg.otherFill = ev.seg.myFill
+                        
+                        let eve = eventRoot[eveIndex].value
+                        segmentStore[eve.seg].otherFill = s.myFill
                     }
                     
-                    eventRoot.remove(index: ev.other)
-                    eventRoot.remove(index: evItem.index)
+                    eventRoot.unlink(index: ev.other)
+                    eventRoot.unlink(index: evItem.index)
                 }
                 
                 guard eventRoot.first == evItem.index else {
@@ -331,10 +375,10 @@ struct Intersecter {
                 //
                 if selfIntersection {
                     let toggle: Bool // are we a toggling edge?
-                    if !ev.seg.myFill.isSet { // if we are a new segment...
+                    if !s.myFill.isSet { // if we are a new segment...
                         toggle = true // then we toggle
                     } else { // we are a segment that has previous knowledge from a division
-                        toggle = ev.seg.myFill.above != ev.seg.myFill.below // calculate toggle
+                        toggle = s.myFill.above != s.myFill.below // calculate toggle
                     }
                     
                     let myFillBelow: Bool
@@ -344,31 +388,33 @@ struct Intersecter {
                         // us is filled above it
                         
                         let below = eventRoot[belowIndex].value
-                        myFillBelow = below.seg.myFill.above
+                        let bs = segmentStore[below.seg]
+                        myFillBelow = bs.myFill.above
                     } else {
                         // if nothing is below us...
                         // we are filled below us if the polygon is inverted
                         myFillBelow = primaryPolyInverted
                     }
-                    ev.seg.myFill.below = myFillBelow
-                    ev.seg.myFill.isSet = true
+                    s.myFill.below = myFillBelow
                     
                     // since now we know if we"re filled below us, we can calculate whether
                     // we"re filled above us by applying toggle to whatever is below us
                     if toggle {
-                        ev.seg.myFill.above = !myFillBelow
+                        s.myFill.above = !myFillBelow
                     } else {
-                        ev.seg.myFill.above = ev.seg.myFill.below
+                        s.myFill.above = s.myFill.below
                     }
 
                     print(evItem.index)
+
+                    s.myFill.isSet = true
                     
-                    eventRoot[evItem.index].value = ev
+                    segmentStore[ev.seg] = s
                 } else {
                     // now we fill in any missing transition information, since we are all-knowing
                     // at this point
                     
-                    if !ev.seg.otherFill.isSet {
+                    if !s.otherFill.isSet {
                         // if we don"t have other information, then we need to figure out if we"re
                         // inside the other polygon
                         let inside: Bool
@@ -377,10 +423,11 @@ struct Intersecter {
                             // so copy the below segment"s other polygon"s above
                             
                             let below = eventRoot[belowIndex].value
+                            let bs = segmentStore[below.seg]
                             if ev.primary == below.primary {
-                                inside = below.seg.otherFill.above
+                                inside = bs.otherFill.above
                             } else {
-                                inside = below.seg.myFill.above
+                                inside = bs.myFill.above
                             }
                         } else {
                             // if nothing is below us, then we"re inside if the other polygon is
@@ -388,9 +435,8 @@ struct Intersecter {
                             inside = ev.primary ? secondaryPolyInverted : primaryPolyInverted
                         }
                         
-                        ev.seg.otherFill = Fill(above: inside, below: inside, isSet: true)
-                        
-                        eventRoot[evItem.index].value = ev
+                        s.otherFill = Fill(above: inside, below: inside, isSet: true)
+                        segmentStore[ev.seg] = s
                     }
                 }
                 
@@ -419,30 +465,36 @@ struct Intersecter {
                 }
                 
                 // remove the status
-                statusRoot.remove(index: stItem.index)
+                statusRoot.remove(index: stItem.index) // TODO unlink !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 
                 // if we"ve reached this point, we"ve calculated everything there is to know, so
                 // save the segment for reporting
                 if !ev.primary {
                     // make sure `seg.myFill` actually points to the primary polygon though
-                    let s = ev.seg.myFill
-                    ev.seg.myFill = ev.seg.otherFill
-                    ev.seg.otherFill = s
+//                    let x = ev.seg.myFill
+//                    ev.seg.myFill = ev.seg.otherFill
+//                    ev.seg.otherFill = x
                     
-                    eventRoot[evItem.index].value = ev
+                    var s = segmentStore[ev.seg]
+                    
+                    let x = s.myFill
+                    s.myFill = s.otherFill
+                    s.otherFill = x
+                    
+                    segmentStore[ev.seg] = s
                 }
                 
                 print("add: \(evItem.index)")
                 
-                segIndices.append(evItem.index)
+                segIndices.append(ev.seg)
             }
             
             // remove the event and continue
             eventRoot.unlink(index: evItem.index)
         }
         
-        let segments = segIndices.map({ eventRoot[$0].value.seg })
-        
+        let segments = segIndices.map({ segmentStore[$0] })
+
         return segments
     }
     
@@ -469,7 +521,7 @@ private extension LinkedList where T == Node {
 
 private extension LinkedList where T == Int {
     
-    mutating func findTransition(eventList: LinkedList<Node>, ev: Node, geom: Geom) -> Transition {
+    mutating func findTransition(eventList: LinkedList<Node>, segmentStore: SegmentStore, s1: Segment, geom: Geom) -> Transition {
         var index = first
         var prev = -1
         while index != -1 {
@@ -477,8 +529,9 @@ private extension LinkedList where T == Int {
             let evIndex = here.value
             
             let ev2 = eventList[evIndex].value
+            let s2 = segmentStore[ev2.seg]
             
-            let comp = Self.statusCompare(ev1: ev, ev2: ev2, geom: geom)
+            let comp = Self.statusCompare(s1: s1, s2: s2, geom: geom)
             
             if comp > 0 {
                 break
@@ -496,11 +549,11 @@ private extension LinkedList where T == Int {
         )
     }
 
-    private static func statusCompare(ev1: Node, ev2: Node, geom: Geom) -> Int {
-        let a1 = ev1.seg.start
-        let a2 = ev1.seg.end
-        let b1 = ev2.seg.start
-        let b2 = ev2.seg.end
+    private static func statusCompare(s1: Segment, s2: Segment, geom: Geom) -> Int {
+        let a1 = s1.start
+        let a2 = s1.end
+        let b1 = s2.start
+        let b2 = s2.end
         
         if geom.arePointsCollinear(a: a1, b: b1, c: b2) {
             if geom.arePointsCollinear(a: a2, b: b1, c: b2) {

@@ -9,7 +9,7 @@ import Geom
 
 struct SegmentIntersecter {
     
-    private var intersecter: Intersecter
+    private (set) var intersecter: Intersecter
     
     init(geom: Geom) {
         intersecter = Intersecter(selfIntersection: false, geom: geom)
@@ -32,24 +32,23 @@ struct SegmentIntersecter {
                 continue // just skip it
             }
 
-            intersecter.eventAddSegment(
-              segment: Segment(
-                    start: forward < 0 ? pt1 : pt2,
-                    end: forward < 0 ? pt2 : pt1
-              ),
-              primary: true
+            let segment = Segment(
+                start: forward < 0 ? pt1 : pt2,
+                end: forward < 0 ? pt2 : pt1
             )
+            
+            intersecter.eventAdd(segment: segment, primary: true)
         }
     }
 
     mutating func calculate(segments1: [Segment], isInverted1: Bool, segments2: [Segment], isInverted2: Bool) -> [Segment] {
         // returns segments that can be used for further operations
         for segment in segments1 {
-            intersecter.eventAddSegment(segment: segment, primary: true)
+            intersecter.eventAdd(segment: segment, primary: true)
         }
         
         for segment in segments2 {
-            intersecter.eventAddSegment(segment: segment, primary: true)
+            intersecter.eventAdd(segment: segment, primary: false)
         }
 
         return intersecter.calculate(primaryPolyInverted: isInverted1, secondaryPolyInverted: isInverted2)
