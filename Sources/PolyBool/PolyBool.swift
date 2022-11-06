@@ -31,174 +31,187 @@ struct PolyBool {
                  continue
             }
 
-            let empty = Matcher(index: -1, matchesHead: false, matchesPt1: false)
-            
             // search for two chains that this segment matches
-            let firstMatch = Matcher(index: 0, matchesHead: false, matchesPt1: false)
-            let secondMatch = Matcher(index: 0, matchesHead: false, matchesPt1: false)
-            var nextMatch = firstMatch
+            var match = [
+                Matcher(index: 0, matchesHead: false, matchesPt1: false),
+                Matcher(index: 0, matchesHead: false, matchesPt1: false)
+            ]
+            var nextMatch = 0
 
             for i in 0..<chains.count {
                 let chain = chains[i]
                 let head = chain[0]
                 let tail = chain[chain.count - 1]
                 if geom.isEqual(a: head, b: pt1) {
-                    nextMatch.index = i
-                    nextMatch.matchesHead = true
-                    nextMatch.matchesPt1 = true
-                    
-                    if nextMatch == firstMatch {
-                        nextMatch = secondMatch
+                    match[nextMatch] = Matcher(
+                        index: i,
+                        matchesHead: true,
+                        matchesPt1: true
+                    )
+                    if nextMatch == 0 {
+                        nextMatch = 1
                     } else {
-                        nextMatch = empty
+                        nextMatch = -1
                         break
                     }
                 } else if geom.isEqual(a: head, b: pt2) {
                     if geom.isEqual(a: head, b: pt1) {
-                        nextMatch.index = i
-                        nextMatch.matchesHead = true
-                        nextMatch.matchesPt1 = false
+                        match[nextMatch] = Matcher(
+                            index: i,
+                            matchesHead: true,
+                            matchesPt1: false
+                        )
                         
-                        if nextMatch == firstMatch {
-                            nextMatch = secondMatch
+                        if nextMatch == 0 {
+                            nextMatch = 1
                         } else {
-                            nextMatch = empty
+                            nextMatch = -1
                             break
                         }
                     } else if geom.isEqual(a: tail, b: pt1) {
-                        nextMatch.index = i
-                        nextMatch.matchesHead = false
-                        nextMatch.matchesPt1 = true
+                        match[nextMatch] = Matcher(
+                            index: i,
+                            matchesHead: false,
+                            matchesPt1: true
+                        )
                         
-                        if nextMatch == firstMatch {
-                            nextMatch = secondMatch
+                        if nextMatch == 0 {
+                            nextMatch = 1
                         } else {
-                            nextMatch = empty
+                            nextMatch = -1
                             break
                         }
                     } else if geom.isEqual(a: tail, b: pt2) {
-                        nextMatch.index = i
-                        nextMatch.matchesHead = false
-                        nextMatch.matchesPt1 = false
+                        match[nextMatch] = Matcher(
+                            index: i,
+                            matchesHead: false,
+                            matchesPt1: false
+                        )
                         
-                        if nextMatch == firstMatch {
-                            nextMatch = secondMatch
+                        if nextMatch == 0 {
+                            nextMatch = 1
                         } else {
-                            nextMatch = empty
+                            nextMatch = -1
                             break
                         }
                     }
                 }
+            }
                 
-                if nextMatch == firstMatch {
-                    // we didn't match anything, so create a new chain
-                    chains.append([pt1, pt2])
-                    continue
-                }
+            guard nextMatch != 0 else {
+                // we didn't match anything, so create a new chain
+                chains.append([pt1, pt2])
+                continue
+            }
+            
+            let m0 = match[0]
+            let m1 = match[1]
+            
+            if nextMatch == 1 {
+                // we matched a single chain
                 
-                if nextMatch == secondMatch {
-                    // we matched a single chain
-                    
-                    // add the other point to the apporpriate end, and check to see if we've closed the
-                    // chain into a loop
-                    
-                    let index = firstMatch.index
-                    let pt = firstMatch.matchesPt1 ? pt2 : pt1 // if we matched pt1, then we add pt2, etc
-                    let addToHead = firstMatch.matchesHead // if we matched at head, then add to the head
-                    
-                    var chain = chains[index]
-                    var grow = addToHead ? chain[0] : chain[chain.count - 1]
-                    let grow2 = addToHead ? chain[1] : chain[chain.count - 2]
-                    let oppo = addToHead ? chain[chain.count - 1] : chain[0]
-                    let oppo2 = addToHead ? chain[chain.count - 2] : chain[1]
-                    
-                    if geom.arePointsCollinear(a: grow2, b: grow, c: pt) {
-                        // grow isn't needed because it's directly between grow2 and pt:
-                        // grow2 ---grow---> pt
-                        if addToHead {
-                            chain.removeFirst()
-                        } else {
-                            chain.removeLast()
-                        }
-                        grow = grow2 // old grow is gone... new grow is what grow2 was
-                    }
-                    
-                    if geom.isEqual(a: oppo, b: pt) {
-                        // we're closing the loop, so remove chain from chains
-                        chains = Array(chains[index...1])
-                        
-                        if geom.arePointsCollinear(a: oppo2, b: oppo, c: grow) {
-                            // oppo isn't needed because it's directly between oppo2 and grow:
-                            // oppo2 ---oppo--->grow
-                            if addToHead {
-                                chain.removeLast()
-                            } else {
-                                chain.removeFirst()
-                            }
-                        }
-                        
-                        // we have a closed chain!
-                        regions.append(Region(points: chain))
-                        continue
-                    }
-                    
-                    // not closing a loop, so just add it to the apporpriate side
+                // add the other point to the apporpriate end, and check to see if we've closed the
+                // chain into a loop
+                                
+                let index = m0.index
+                let pt = m0.matchesPt1 ? pt2 : pt1 // if we matched pt1, then we add pt2, etc
+                let addToHead = m0.matchesHead // if we matched at head, then add to the head
+                
+                var chain = chains[index]
+                var grow = addToHead ? chain[0] : chain[chain.count - 1]
+                let grow2 = addToHead ? chain[1] : chain[chain.count - 2]
+                let oppo = addToHead ? chain[chain.count - 1] : chain[0]
+                let oppo2 = addToHead ? chain[chain.count - 2] : chain[1]
+                
+                if geom.arePointsCollinear(a: grow2, b: grow, c: pt) {
+                    // grow isn't needed because it's directly between grow2 and pt:
+                    // grow2 ---grow---> pt
                     if addToHead {
-                        chain.insert(pt, at: 0)
+                        chain.removeFirst()
                     } else {
-                        chain.append(pt)
+                        chain.removeLast()
                     }
+                    grow = grow2 // old grow is gone... new grow is what grow2 was
+                }
+                
+                if geom.isEqual(a: oppo, b: pt) {
+                    // we're closing the loop, so remove chain from chains
+                    chains.remove(at: index)
                     
+                    if geom.arePointsCollinear(a: oppo2, b: oppo, c: grow) {
+                        // oppo isn't needed because it's directly between oppo2 and grow:
+                        // oppo2 ---oppo--->grow
+                        if addToHead {
+                            chain.removeLast()
+                        } else {
+                            chain.removeFirst()
+                        }
+                    }
+                
+                    // chains[index] = chain !!!!
+                    
+                    // we have a closed chain!
+                    regions.append(Region(points: chain))
                     continue
                 }
                 
-                // otherwise, we matched two chains, so we need to combine those chains together
+                // not closing a loop, so just add it to the apporpriate side
+                if addToHead {
+                    chain.insert(pt, at: 0)
+                } else {
+                    chain.append(pt)
+                }
+                
+                chains[index] = chain
+                
+                continue
+            }
+            
+            // otherwise, we matched two chains, so we need to combine those chains together
 
-                let f = firstMatch.index
-                let s = secondMatch.index
-                
-                
-                let reverseF = chains[f].count < chains[s].count // reverse the shorter chain, if needed
-                if firstMatch.matchesHead {
-                    if secondMatch.matchesHead {
-                        if reverseF {
-                            // <<<< F <<<< --- >>>> S >>>>
-                            chains[f].reverse()
-                            // >>>> F >>>> --- >>>> S >>>>
-                            chains.appendChain(index1: f, index2: s, geom: geom)
-                        } else {
-                            // <<<< F <<<< --- >>>> S >>>>
-                            chains[s].reverse()
-                            // <<<< F <<<< --- <<<< S <<<<   logically same as:
-                            // >>>> S >>>> --- >>>> F >>>>
-                            chains.appendChain(index1: s, index2: f, geom: geom)
-                        }
+            let f = m0.index
+            let s = m1.index
+
+            let reverseF = chains[f].count < chains[s].count // reverse the shorter chain, if needed
+            if m0.matchesHead {
+                if m1.matchesHead {
+                    if reverseF {
+                        // <<<< F <<<< --- >>>> S >>>>
+                        chains[f].reverse()
+                        // >>>> F >>>> --- >>>> S >>>>
+                        chains.appendChain(index1: f, index2: s, geom: geom)
                     } else {
+                        // <<<< F <<<< --- >>>> S >>>>
+                        chains[s].reverse()
                         // <<<< F <<<< --- <<<< S <<<<   logically same as:
                         // >>>> S >>>> --- >>>> F >>>>
                         chains.appendChain(index1: s, index2: f, geom: geom)
                     }
                 } else {
-                    if secondMatch.matchesHead {
+                    // <<<< F <<<< --- <<<< S <<<<   logically same as:
+                    // >>>> S >>>> --- >>>> F >>>>
+                    chains.appendChain(index1: s, index2: f, geom: geom)
+                }
+            } else {
+                if m1.matchesHead {
+                    // >>>> F >>>> --- >>>> S >>>>
+                    chains.appendChain(index1: f, index2: s, geom: geom)
+                } else {
+                    if reverseF {
+                        // >>>> F >>>> --- <<<< S <<<<
+                        chains[f].reverse()
+                        // <<<< F <<<< --- <<<< S <<<<   logically same as:
+                        // >>>> S >>>> --- >>>> F >>>>
+                        chains.appendChain(index1: s, index2: f, geom: geom)
+                    } else {
+                        // >>>> F >>>> --- <<<< S <<<<
+                        chains[s].reverse()
                         // >>>> F >>>> --- >>>> S >>>>
                         chains.appendChain(index1: f, index2: s, geom: geom)
-                    } else {
-                        if reverseF {
-                            // >>>> F >>>> --- <<<< S <<<<
-                            chains[f].reverse()
-                            // <<<< F <<<< --- <<<< S <<<<   logically same as:
-                            // >>>> S >>>> --- >>>> F >>>>
-                            chains.appendChain(index1: s, index2: f, geom: geom)
-                        } else {
-                            // >>>> F >>>> --- <<<< S <<<<
-                            chains[s].reverse()
-                            // >>>> F >>>> --- >>>> S >>>>
-                            chains.appendChain(index1: f, index2: s, geom: geom)
-                        }
                     }
                 }
             }
-         }
+        }
 
          return regions
      }
@@ -270,6 +283,6 @@ private extension Array where Element == [Point] {
         chain1.append(contentsOf: chain2)
         
         self[index1] = chain1
-        self = Array(self[index2...1])
+        self.remove(at: index2)
     }
 }

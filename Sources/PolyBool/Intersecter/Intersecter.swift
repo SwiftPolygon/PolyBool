@@ -345,6 +345,7 @@ struct Intersecter {
                             
                             var es = segmentStore[eve.seg]
                             es.myFill.above = !es.myFill.above
+                            es.myFill.isSet = true
                             
                             segmentStore[eve.seg] = es
                         }
@@ -353,9 +354,7 @@ struct Intersecter {
                         // each segment has distinct knowledge, so no special logic is needed
                         // note that this can only happen once per segment in this phase, because we
                         // are guaranteed that all self-intersections are gone
-                        
-//                        eventRoot[eveIndex].value.seg.otherFill = ev.seg.myFill
-                        
+
                         let eve = eventRoot[eveIndex].value
                         segmentStore[eve.seg].otherFill = s.myFill
                     }
@@ -471,15 +470,14 @@ struct Intersecter {
                 // save the segment for reporting
                 if !ev.primary {
                     // make sure `seg.myFill` actually points to the primary polygon though
-//                    let x = ev.seg.myFill
-//                    ev.seg.myFill = ev.seg.otherFill
-//                    ev.seg.otherFill = x
                     
                     var s = segmentStore[ev.seg]
                     
                     let x = s.myFill
                     s.myFill = s.otherFill
+                    s.myFill.isSet = true
                     s.otherFill = x
+                    s.otherFill.isSet = true
                     
                     segmentStore[ev.seg] = s
                 }

@@ -36,11 +36,6 @@ public struct SegmentSelector {
             0, 0, 0, 0
         ])
 
-//        foreach(var s in union)
-//        {
-//            Console.WriteLine("{0},{1} -> {2},{3}", s.Start.X, s.Start.Y, s.End.X, s.End.Y);
-//        }
-
         return Polygon(
             regions: polyBool.segmentChainer(segments: union),
             isInverted: first.inverted || second.inverted
@@ -67,12 +62,6 @@ public struct SegmentSelector {
             0, 0, 1, 1,
             0, 2, 1, 0
         ])
-
-
-//        foreach (var s in intersection)
-//        {
-//            Console.WriteLine("{0},{1} -> {2},{3}", s.Start.X, s.Start.Y, s.End.X, s.End.Y);
-//        }
         
         let regions = polyBool.segmentChainer(segments: intersection)
         
@@ -177,15 +166,11 @@ public struct SegmentSelector {
         var result = [Segment]()
 
         for segment in segments {
-            let myAbove = segment.myFill.above
-            let myBelow = segment.myFill.below
-            let otherAbove = segment.otherFill.above
-            let otherBelow = segment.otherFill.below
-            
-            let index = (myAbove ? 8 : 0) +
-                        (myBelow ? 4 : 0) +
-                        (otherAbove ? 2 : 0) +
-                        (otherBelow ? 1 : 0)
+            let index =
+            (segment.myFill.above ? 8 : 0) +
+            (segment.myFill.below ? 4 : 0) +
+            (segment.otherFill.isSet && segment.otherFill.above ? 2 : 0) +
+            (segment.otherFill.isSet && segment.otherFill.below ? 1 : 0)
 
             if selection[index] != 0 {
                 result.append(
