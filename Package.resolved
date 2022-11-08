@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "geom",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SwiftPolygon/Geom",
+      "state" : {
+        "revision" : "cbc074e413a2c6096172a997013b03de90635d30",
+        "version" : "1.0.1"
+      }
+    }
+  ],
+  "version" : 2
+}

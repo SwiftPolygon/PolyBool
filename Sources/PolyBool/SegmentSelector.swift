@@ -11,7 +11,7 @@ public struct SegmentSelector {
     
     private let polyBool: PolyBool
     
-    public init(geom: Geom) {
+    public init(geom: Geom = Geom()) {
         polyBool = PolyBool(geom: geom)
     }
 
