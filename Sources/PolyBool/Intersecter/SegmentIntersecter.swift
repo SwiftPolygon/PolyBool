@@ -9,12 +9,13 @@ import Geom
 
 struct SegmentIntersecter {
     
-    private (set) var intersecter: Intersecter
+    private (set) var intersecter: Intersector
     
     init(geom: Geom) {
-        intersecter = Intersecter(selfIntersection: false, geom: geom)
+        intersecter = Intersector(selfIntersection: false, geom: geom)
     }
     
+    @inlinable
     mutating func addRegion(region: Region) {
         // regions are a list of points:
         //  [ [0, 0], [100, 0], [50, 100] ]
@@ -22,6 +23,7 @@ struct SegmentIntersecter {
         var pt1: Point = .zero
         var pt2 = region.points[region.points.count - 1]
         for i in 0..<region.points.count {
+            
             pt1 = pt2
             pt2 = region.points[i]
 
@@ -41,6 +43,7 @@ struct SegmentIntersecter {
         }
     }
 
+    @inlinable
     mutating func calculate(segments1: [Segment], isInverted1: Bool, segments2: [Segment], isInverted2: Bool) -> [Segment] {
         // returns segments that can be used for further operations
         for segment in segments1 {

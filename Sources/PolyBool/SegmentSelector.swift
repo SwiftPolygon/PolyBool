@@ -14,8 +14,8 @@ public struct SegmentSelector {
     public init(geom: Geom) {
         polyBool = PolyBool(geom: geom)
     }
-    
-    public func union(segments: [Segment]) -> [Segment] {
+
+    private func union(segments: [Segment]) -> [Segment] {
         self.select(segments: segments, selection: [
             0, 2, 1, 0,
             2, 2, 0, 0,
@@ -42,7 +42,7 @@ public struct SegmentSelector {
         )
     }
 
-    public func intersect(segments: [Segment]) -> [Segment] {
+    private func intersect(segments: [Segment]) -> [Segment] {
         self.select(segments: segments, selection: [
             0, 0, 0, 0,
             0, 2, 0, 2,
@@ -70,8 +70,8 @@ public struct SegmentSelector {
             isInverted: first.inverted && second.inverted
         )
     }
-
-    func difference(combined: CombinedPolySegments) -> PolySegments {
+    
+    private func difference(combined: CombinedPolySegments) -> PolySegments {
         let isInverted = !combined.isInverted1 && combined.isInverted2
         
         let segments = self.select(segments: combined.combined, selection: [
@@ -84,7 +84,7 @@ public struct SegmentSelector {
         return PolySegments(isInverted: isInverted, segments: segments)
     }
     
-    func difference(first: Polygon, second: Polygon) -> Polygon {
+    public func difference(first: Polygon, second: Polygon) -> Polygon {
         let firstPolygonRegions = polyBool.segments(poly: first)
         let secondPolygonRegions = polyBool.segments(poly: second)
         let combinedSegments = polyBool.combine(segments1: firstPolygonRegions, segments2: secondPolygonRegions)
@@ -104,7 +104,7 @@ public struct SegmentSelector {
         )
     }
     
-    public func differenceRev(segments: [Segment]) -> [Segment] {
+    private func differenceRev(segments: [Segment]) -> [Segment] {
         self.select(segments: segments, selection: [
             0, 2, 1, 0,
             0, 0, 1, 1,
@@ -133,7 +133,7 @@ public struct SegmentSelector {
         )
     }
     
-    public func xor(segments: [Segment]) -> [Segment] {
+    private func xor(segments: [Segment]) -> [Segment] {
         self.select(segments: segments, selection: [
             0, 2, 1, 0,
             2, 0, 0, 1,
@@ -173,11 +173,14 @@ public struct SegmentSelector {
             (segment.otherFill.isSet && segment.otherFill.below ? 1 : 0)
 
             if selection[index] != 0 {
+                let above = selection[index] == 2
+                let below = selection[index] == 1
+                
                 result.append(
                     Segment(
                         start: segment.start,
                         end: segment.end,
-                        myFill: Fill(above: selection[index] == 2, below: selection[index] == 1)
+                        myFill: Fill(above: above, below: below, isSet: true)
                     )
                 )
             }

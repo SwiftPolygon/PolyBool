@@ -1,5 +1,5 @@
 //
-//  Intersecter.swift
+//  Intersector.swift
 //  
 //
 //  Created by Nail Sharipov on 03.11.2022.
@@ -7,7 +7,12 @@
 
 import Geom
 
-struct Intersecter {
+private struct Transition {
+    let after: Int
+    let before: Int
+}
+
+struct Intersector {
     
     let geom: Geom
     private var segmentStore = SegmentStore()
@@ -21,30 +26,22 @@ struct Intersecter {
         self.eventRoot = eventRoot
     }
     
-    
     @inlinable
     mutating func eventAdd(segment: Segment, primary: Bool) {
         let seg = segmentStore.put(segment: segment)
-        let evStartIndex = self.eventAddSegmentStart(seg: seg, primary: primary)
-        self.eventAddSegmentEnd(evStart: evStartIndex, seg: seg, primary: primary)
+        let evStartIndex = self.eventAddSegmentStart(segment: segment, index: seg, primary: primary)
+        self.eventAddSegmentEnd(evStart: evStartIndex, segemnet: segment, index: seg, primary: primary)
     }
     
-    @inlinable
-    mutating func eventAddSegment(segment: Int, primary: Bool) {
-        let evStartIndex = self.eventAddSegmentStart(seg: segment, primary: primary)
-        self.eventAddSegmentEnd(evStart: evStartIndex, seg: segment, primary: primary)
-    }
-    
-    private mutating func eventAddSegmentEnd(evStart evStartIndex: Int, seg: Int, primary: Bool) {
+    private mutating func eventAddSegmentEnd(evStart evStartIndex: Int, segemnet s: Segment, index i: Int, primary: Bool) {
         var evStart = eventRoot[evStartIndex]
         
         let evEnd = Node(
             status: -1,
             other: evStartIndex,
-            ev: -1,
             isStart: false,
-            pt: segmentStore[seg].end,
-            seg: seg,
+            pt: s.end,
+            seg: i,
             primary: primary
         )
         
@@ -56,15 +53,13 @@ struct Intersecter {
         self.eventAdd(ev: evItem, otherPt: evStart.value.pt)
     }
     
-    private mutating func eventAddSegmentStart(seg: Int, primary: Bool) -> Int {
-        let s = segmentStore[seg]
+    private mutating func eventAddSegmentStart(segment s: Segment, index i: Int, primary: Bool) -> Int {
         let evStart = Node(
             status: -1,
             other: -1,
-            ev: -1,
             isStart: true,
             pt: s.start,
-            seg: seg,
+            seg: i,
             primary: primary
         )
         
@@ -102,7 +97,7 @@ struct Intersecter {
         
         // the selected points are the same
         
-        guard !geom.isEqual(a: p12, b: p22) else { // if the non-selected points are the same too...
+        guard !geom.isSamePoints(p12, p22) else { // if the non-selected points are the same too...
             return 0 // then the segments are equal
         }
         
@@ -120,18 +115,7 @@ struct Intersecter {
         
         return flag ? 1 : -1
     }
-    
-    private func segmentCopy(start: Point, end: Point, seg: Segment) -> Segment {
-        Segment(
-            start: start,
-            end: end,
-            myFill: Fill(
-                above: seg.myFill.above,
-                below: seg.myFill.below
-            )
-        )
-    }
-    
+
     private mutating func eventUpdateEnd(ev evIndex: Int, end: Point) {
         // slides an end backwards
         //   (start)------------(end)    to:
@@ -160,17 +144,15 @@ struct Intersecter {
         let newSeg = Segment(
             start: pt,
             end: s.end,
-            myFill: Fill(
-                above: s.myFill.above,
-                below: s.myFill.below
-            )
+            myFill: s.myFill
         )
         
         let ns = segmentStore.put(segment: newSeg)
-        eventUpdateEnd(ev: evIndex, end: pt)
-        eventAddSegment(segment: ns, primary: ev.primary)
+        self.eventUpdateEnd(ev: evIndex, end: pt)
+        let evStartIndex = self.eventAddSegmentStart(segment: newSeg, index: ns, primary: ev.primary)
+        self.eventAddSegmentEnd(evStart: evStartIndex, segemnet: newSeg, index: ns, primary: ev.primary)
     }
-    
+
     private mutating func checkIntersection(ev1 ev1Index: Int, ev2 ev2Index: Int) -> Bool {
         // returns the segment equal to ev1, or false if nothing equal
         
@@ -185,31 +167,31 @@ struct Intersecter {
         let b1 = s2.start
         let b2 = s2.end
         
-        let i = geom.isCross(a0: a1, a1: a2, b0: b1, b1: b2)
+        let i = geom.isCross(a1, a2, b1, b2)
         
         if !i.isCross {
             // segments are parallel or coincident
             
             // if points aren"t collinear, then the segments are parallel, so no intersections
-            guard geom.arePointsCollinear(a: a1, b: a2, c: b1) else {
+            guard geom.arePointsCollinear(a1, a2, b1) else {
                 return false
             }
             
             // otherwise, segments are on top of each other somehow (aka coincident)
             
-            guard !(geom.isEqual(a: a1, b: b2) || geom.isEqual(a: a2, b: b1)) else {
+            guard !(geom.isSamePoints(a1, b2) || geom.isSamePoints(a2, b1)) else {
                 return false // segments touch at endpoints... no intersection
             }
             
-            let a1EquB1 = geom.isEqual(a: a1, b: b1)
-            let a2EquB2 = geom.isEqual(a: a2, b: b2)
+            let a1EquB1 = geom.isSamePoints(a1, b1)
+            let a2EquB2 = geom.isSamePoints(a2, b2)
             
             guard !(a1EquB1 && a2EquB2) else {
                 return true // segments are exactly equal
             }
             
-            let a1Between = !a1EquB1 && geom.pointBetween(a1, b1, right: b2)
-            let a2Between = !a2EquB2 && geom.pointBetween(a2, b1, right: b2)
+            let a1Between = !a1EquB1 && geom.pointBetween(a1, b1, b2)
+            let a2Between = !a2EquB2 && geom.pointBetween(a2, b1, b2)
             
             if a1EquB1 {
                 if a2Between {
@@ -301,8 +283,6 @@ struct Intersecter {
             
             let evItem = eventRoot.head
             var ev = evItem.value
-            
-            print("evItem.index: \(evItem.index)")
             
             if ev.isStart {
                 var s = segmentStore[ev.seg]
@@ -404,8 +384,6 @@ struct Intersecter {
                         s.myFill.above = s.myFill.below
                     }
 
-                    print(evItem.index)
-
                     s.myFill.isSet = true
                     
                     segmentStore[ev.seg] = s
@@ -443,8 +421,7 @@ struct Intersecter {
                 let stIndex = statusRoot.insertBetween(a0: surrounding.before, a2: surrounding.after, value: evItem.index)
 
                 eventRoot[ev.other].value.status = stIndex
-            } else {
-                
+            } else { // start
                 guard statusRoot.exist(index: ev.status) else {
                     fatalError("PolyBool: Zero-length segment detected; your epsilon is probably too small or too large")
                 }
@@ -464,7 +441,7 @@ struct Intersecter {
                 }
                 
                 // remove the status
-                statusRoot.remove(index: stItem.index) // TODO unlink !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                statusRoot.unlink(index: stItem.index) // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 
                 // if we"ve reached this point, we"ve calculated everything there is to know, so
                 // save the segment for reporting
@@ -481,8 +458,6 @@ struct Intersecter {
                     
                     segmentStore[ev.seg] = s
                 }
-                
-                print("add: \(evItem.index)")
                 
                 segIndices.append(ev.seg)
             }
@@ -553,8 +528,8 @@ private extension LinkedList where T == Int {
         let b1 = s2.start
         let b2 = s2.end
         
-        if geom.arePointsCollinear(a: a1, b: b1, c: b2) {
-            if geom.arePointsCollinear(a: a2, b: b1, c: b2) {
+        if geom.arePointsCollinear(a1, b1, b2) {
+            if geom.arePointsCollinear(a2, b1, b2) {
                 return 1
             } else {
                 return geom.pointAboveOrOnLine(a2, b1, b2) ? 1 : -1

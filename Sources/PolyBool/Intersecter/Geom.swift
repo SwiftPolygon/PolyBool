@@ -23,7 +23,7 @@ extension Geom {
     }
     
     @inlinable
-    func pointBetween(_ point: Point, _ left: Point, right: Point) -> Bool {
+    func pointBetween(_ point: Point, _ left: Point, _ right: Point) -> Bool {
         // p must be collinear with left->right
         // returns false if p == left, p == right, or left == right
         let dPyLy = point.y - left.y
@@ -33,12 +33,14 @@ extension Geom {
 
         let dot = dPxLx * dRxLx + dPyLy * dRyLy
 
-        guard dot < eps else {
+        guard dot >= eps else {
             return false
         }
 
         let sqlen = dRxLx * dRxLx + dRyLy * dRyLy
+        
+        let res = dot - sqlen <= -eps
 
-        return dot - sqlen <= -eps
+        return res
     }
 }

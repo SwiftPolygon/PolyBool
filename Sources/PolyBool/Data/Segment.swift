@@ -7,27 +7,29 @@
 
 import Geom
 
-public struct Fill {
+struct Fill {
     
-    public internal (set) var above: Bool
-    public internal (set) var below: Bool
-    public internal (set) var isSet: Bool
+    var above: Bool
+    var below: Bool
+    var isSet: Bool
     
-    public init(above: Bool, below: Bool, isSet: Bool = false) {
+    @inlinable
+    init(above: Bool, below: Bool, isSet: Bool = false) {
         self.above = above
         self.below = below
         self.isSet = isSet
     }
 }
 
-public struct Segment {
+struct Segment {
     
-    public internal (set) var start: Point
-    public internal (set) var end: Point
-    public internal (set) var myFill: Fill
-    public internal (set) var otherFill: Fill
+    var start: Point
+    var end: Point
+    var myFill: Fill
+    var otherFill: Fill
     
-    public init(start: Point, end: Point, myFill: Fill = .init(above: false, below: false), otherFill: Fill = .init(above: false, below: false)) {
+    @inlinable
+    init(start: Point, end: Point, myFill: Fill = .init(above: false, below: false), otherFill: Fill = .init(above: false, below: false)) {
         self.start = start
         self.end = end
         self.myFill = myFill

@@ -27,6 +27,7 @@ struct LinkedList<T> {
             self.isNode = isNode
         }
         
+        @inlinable
         static func == (lhs: Self, rhs: Self) -> Bool {
             lhs.index == rhs.index
         }
@@ -49,39 +50,6 @@ struct LinkedList<T> {
     private (set) var last: Int
     private let empty: T
     private (set) var items: [Item<T>]
-    private var free: [Int]
-
-    @inlinable
-    func item(index: Int) -> Item<T> {
-        guard index < items.count && index >= 0 else { return Item(value: empty, prev: -1, index: -1, next: -1, isNode: false) }
-        return items[index]
-    }
-    
-    @inlinable
-    var values: [T] {
-        var result = [T]()
-        result.reserveCapacity(count)
-        var index = first
-        while index != -1 {
-            let item = items[index]
-            result.append(item.value)
-            index = item.next
-        }
-        return result
-    }
-    
-    @inlinable
-    var inverse: [T] {
-        var result = [T]()
-        result.reserveCapacity(count)
-        var index = last
-        while index != -1 {
-            let item = items[index]
-            result.append(item.value)
-            index = item.prev
-        }
-        return result
-    }
     
     @inlinable
     init(empty: T, capacity: Int = 16) {
@@ -91,8 +59,6 @@ struct LinkedList<T> {
         last = -1
         items = [Item]()
         items.reserveCapacity(capacity)
-        free = [Int]()
-        free.reserveCapacity(capacity)
     }
     
     @inlinable
@@ -112,8 +78,6 @@ struct LinkedList<T> {
         items[count - 1].next = -1
         first = 0
         last = count - 1
-        free = [Int]()
-        free.reserveCapacity(count)
     }
 
     @inlinable
@@ -128,17 +92,9 @@ struct LinkedList<T> {
     
     @inlinable
     mutating func create(value: T) -> Item<T> {
-        let item: Item<T>
-        
-        if free.isEmpty {
-            let i = items.count
-            item = Item(value: value, prev: -1, index: i, next: -1, isNode: false)
-            items.append(item)
-        } else {
-            let i = free.removeLast()
-            item = Item(value: value, prev: -1, index: i, next: -1, isNode: false)
-            items[i] = item
-        }
+        let i = items.count
+        let item = Item(value: value, prev: -1, index: i, next: -1, isNode: false)
+        items.append(item)
         
         return item
     }
@@ -166,14 +122,6 @@ struct LinkedList<T> {
         
         count += 1
     }
-    
-    
-    @inlinable
-    mutating func add(value: T) -> Int {
-        let item = self.create(value: value)
-        self.add(item: item)
-        return item.index
-    }
 
     @inlinable
     mutating func insertBefore(index: Int, item: Item<T>) {
@@ -196,13 +144,6 @@ struct LinkedList<T> {
         items[index] = after
         
         count += 1
-    }
-
-    @inlinable
-    mutating func insertBefore(index: Int, value: T) -> Int {
-        let item = self.create(value: value)
-        self.insertBefore(index: index, item: item)
-        return item.index
     }
     
     @inlinable
@@ -233,30 +174,24 @@ struct LinkedList<T> {
     }
     
     @inlinable
-    mutating func remove(item: Item<T>) {
-        self.remove(index: item.index)
-    }
-    
-    @inlinable
     mutating func remove(index: Int) {
         let item = items[index]
         assert(item.index == index)
+        assert(index != -1)
         items[index] = Item(value: empty, prev: -1, index: -1, next: -1, isNode: false)
-       
+
         if item.prev != -1 {
             items[item.prev].next = item.next
         } else {
             first = item.next
         }
-        
+
         if item.next != -1 {
             items[item.next].prev = item.prev
         } else {
             last = item.prev
         }
-        
-        free.append(index)
-     
+
         if item.isNode {
             count -= 1
         }
@@ -276,13 +211,13 @@ struct LinkedList<T> {
        
         if item.prev != -1 {
             items[item.prev].next = item.next
-        } else {
+        } else if first == item.index {
             first = item.next
         }
         
         if item.next != -1 {
             items[item.next].prev = item.prev
-        } else {
+        } else if last == item.index {
             last = item.prev
         }
     }

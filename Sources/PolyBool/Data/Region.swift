@@ -9,7 +9,7 @@ import Geom
 
 public struct Region {
     
-    public var points: [Point]
+    public let points: [Point]
     
     public init(points: [Point]) {
         self.points = points

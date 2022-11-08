@@ -5,12 +5,12 @@
 //  Created by Nail Sharipov on 03.11.2022.
 //
 
-public struct PolySegments {
+struct PolySegments {
     
-    public internal (set) var isInverted: Bool
-    public internal (set) var segments: [Segment]
+    let isInverted: Bool
+    let segments: [Segment]
     
-    public init(isInverted: Bool, segments: [Segment]) {
+    init(isInverted: Bool, segments: [Segment]) {
         self.isInverted = isInverted
         self.segments = segments
     }

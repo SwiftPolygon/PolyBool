@@ -7,6 +7,37 @@
 
 import Geom
 
+private struct Matcher {
+    let index: Int
+    let matchesHead: Bool
+    let matchesPt1: Bool
+}
+
+private struct MatcherArray {
+    
+    private (set) var first = Matcher(index: 0, matchesHead: false, matchesPt1: false)
+    private (set) var second = Matcher(index: 0, matchesHead: false, matchesPt1: false)
+    
+    subscript(index: Int) -> Matcher {
+        get {
+            if index == 0 {
+                return first
+            } else {
+                return second
+            }
+        }
+        
+        set {
+            if index == 0 {
+                first = newValue
+            } else {
+                second = newValue
+            }
+        }
+    }
+    
+}
+
 struct PolyBool {
 
     private let geom: Geom
@@ -15,6 +46,7 @@ struct PolyBool {
         self.geom = geom
     }
     
+    @inlinable
     func segmentChainer(segments: [Segment]) -> [Region] {
         
         var regions = [Region]()
@@ -24,25 +56,21 @@ struct PolyBool {
 
             let pt1 = seg.start
             let pt2 = seg.end
-            
-            
-            guard !geom.isEqual(a: pt1, b: pt2) else {
-                 debugPrint("PolyBool: Warning: Zero-length segment detected; your epsilon is probably too small or too large")
-                 continue
+
+            guard !geom.isSamePoints(pt1, pt2) else {
+                fatalError("PolyBool: Warning: Zero-length segment detected; your epsilon is probably too small or too large")
+                continue
             }
 
             // search for two chains that this segment matches
-            var match = [
-                Matcher(index: 0, matchesHead: false, matchesPt1: false),
-                Matcher(index: 0, matchesHead: false, matchesPt1: false)
-            ]
+            var match = MatcherArray()
             var nextMatch = 0
 
             for i in 0..<chains.count {
                 let chain = chains[i]
                 let head = chain[0]
                 let tail = chain[chain.count - 1]
-                if geom.isEqual(a: head, b: pt1) {
+                if geom.isSamePoints(head, pt1) {
                     match[nextMatch] = Matcher(
                         index: i,
                         matchesHead: true,
@@ -54,46 +82,44 @@ struct PolyBool {
                         nextMatch = -1
                         break
                     }
-                } else if geom.isEqual(a: head, b: pt2) {
-                    if geom.isEqual(a: head, b: pt1) {
-                        match[nextMatch] = Matcher(
-                            index: i,
-                            matchesHead: true,
-                            matchesPt1: false
-                        )
-                        
-                        if nextMatch == 0 {
-                            nextMatch = 1
-                        } else {
-                            nextMatch = -1
-                            break
-                        }
-                    } else if geom.isEqual(a: tail, b: pt1) {
-                        match[nextMatch] = Matcher(
-                            index: i,
-                            matchesHead: false,
-                            matchesPt1: true
-                        )
-                        
-                        if nextMatch == 0 {
-                            nextMatch = 1
-                        } else {
-                            nextMatch = -1
-                            break
-                        }
-                    } else if geom.isEqual(a: tail, b: pt2) {
-                        match[nextMatch] = Matcher(
-                            index: i,
-                            matchesHead: false,
-                            matchesPt1: false
-                        )
-                        
-                        if nextMatch == 0 {
-                            nextMatch = 1
-                        } else {
-                            nextMatch = -1
-                            break
-                        }
+                } else if geom.isSamePoints(head, pt2) {
+                    match[nextMatch] = Matcher(
+                        index: i,
+                        matchesHead: true,
+                        matchesPt1: false
+                    )
+                    
+                    if nextMatch == 0 {
+                        nextMatch = 1
+                    } else {
+                        nextMatch = -1
+                        break
+                    }
+                } else if geom.isSamePoints(tail, pt1) {
+                    match[nextMatch] = Matcher(
+                        index: i,
+                        matchesHead: false,
+                        matchesPt1: true
+                    )
+                    
+                    if nextMatch == 0 {
+                        nextMatch = 1
+                    } else {
+                        nextMatch = -1
+                        break
+                    }
+                } else if geom.isSamePoints(tail, pt2) {
+                    match[nextMatch] = Matcher(
+                        index: i,
+                        matchesHead: false,
+                        matchesPt1: false
+                    )
+                    
+                    if nextMatch == 0 {
+                        nextMatch = 1
+                    } else {
+                        nextMatch = -1
+                        break
                     }
                 }
             }
@@ -104,8 +130,8 @@ struct PolyBool {
                 continue
             }
             
-            let m0 = match[0]
-            let m1 = match[1]
+            let m0 = match.first
+            let m1 = match.second
             
             if nextMatch == 1 {
                 // we matched a single chain
@@ -123,7 +149,7 @@ struct PolyBool {
                 let oppo = addToHead ? chain[chain.count - 1] : chain[0]
                 let oppo2 = addToHead ? chain[chain.count - 2] : chain[1]
                 
-                if geom.arePointsCollinear(a: grow2, b: grow, c: pt) {
+                if geom.arePointsCollinear(grow2, grow, pt) {
                     // grow isn't needed because it's directly between grow2 and pt:
                     // grow2 ---grow---> pt
                     if addToHead {
@@ -134,11 +160,11 @@ struct PolyBool {
                     grow = grow2 // old grow is gone... new grow is what grow2 was
                 }
                 
-                if geom.isEqual(a: oppo, b: pt) {
+                if geom.isSamePoints(oppo, pt) {
                     // we're closing the loop, so remove chain from chains
                     chains.remove(at: index)
                     
-                    if geom.arePointsCollinear(a: oppo2, b: oppo, c: grow) {
+                    if geom.arePointsCollinear(oppo2, oppo, grow) {
                         // oppo isn't needed because it's directly between oppo2 and grow:
                         // oppo2 ---oppo--->grow
                         if addToHead {
@@ -267,14 +293,14 @@ private extension Array where Element == [Point] {
         let head = chain2[0]
         let head2 = chain2[1]
         
-        if geom.arePointsCollinear(a: tail2, b: tail, c: head) {
+        if geom.arePointsCollinear(tail2, tail, head) {
             // tail isn't needed because it's directly between tail2 and head
             // tail2 ---tail---> head
             chain1.removeLast()
             tail = tail2 // old tail is gone... new tail is what tail2 was
         }
         
-        if geom.arePointsCollinear(a: tail, b: head, c: head2) {
+        if geom.arePointsCollinear(tail, head, head2) {
             // head isn't needed because it's directly between tail and head2
             // tail ---head---> head2
             chain2.removeFirst()

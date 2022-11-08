@@ -9,21 +9,23 @@ import Geom
 
 struct RegionIntersecter {
     
-    private (set) var intersecter: Intersecter
+    private (set) var intersecter: Intersector
     
     init(geom: Geom) {
-        intersecter = Intersecter(selfIntersection: true, geom: geom)
+        intersecter = Intersector(selfIntersection: true, geom: geom)
     }
     
+    @inlinable
     mutating func addRegion(region: Region) {
-          // regions are a list of points:
-          //  [ [0, 0], [100, 0], [50, 100] ]
-          // you can add multiple regions before running calculate
+        // regions are a list of points:
+        //  [ [0, 0], [100, 0], [50, 100] ]
+        // you can add multiple regions before running calculate
         var pt1: Point = .zero
         var pt2 = region.points[region.points.count - 1]
         for p in region.points {
-              pt1 = pt2
-              pt2 = p
+            
+            pt1 = pt2
+            pt2 = p
 
             let forward = intersecter.geom.pointsCompare(pt1, pt2)
             
@@ -41,8 +43,9 @@ struct RegionIntersecter {
         }
     }
 
+    @inlinable
     mutating func calculate(inverted: Bool) -> [Segment] {
         intersecter.calculate(primaryPolyInverted: inverted, secondaryPolyInverted: false)
     }
 
-  }
+}
